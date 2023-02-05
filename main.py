@@ -8,7 +8,7 @@ class Map(SpriteGroup):
 	def __init__(self, width, height):
 		super().__init__()
 		self.display_place = pygame.display.get_surface()
-		self.background = load_image('background.webp')
+		self.background = load_image('background.png')
 		self.back_rect = self.background.get_rect(topleft=(-200, 0))
 		self.map_matrix = self.generate(int(width // 20), int(height // 20), int(height // 50), 3)
 		self.rect_list = [pygame.Rect(x * 50, y * 50, 50, 50) for y in range(len(self.map_matrix))
@@ -104,7 +104,9 @@ class Map(SpriteGroup):
 
 	def custom_draw(self):
 		self.acceleration()
-		self.display_place.blit(self.background, (game.hero.pos_x // 10 - 200, game.hero.pos_y // 10 - 200))
+		self.display_place.blit(self.background, ((game.time / 3) % self.background.get_width(), -200))
+		self.display_place.blit(self.background, (((game.time / 3) % self.background.get_width())
+		                                          - self.background.get_width(), -200))
 		self.place()
 
 	def place(self):
@@ -202,15 +204,24 @@ class OverlayingGUI(Sprite):
 		self.health = None
 		self.font_50 = pygame.font.Font('Data/m5x7.ttf', 50)
 		self.font_100 = pygame.font.Font('Data/m5x7.ttf', 100)
+		self.pause_trans_gray = load_image(r'gray_t.png')
+		self.hov_button = load_image(r'hov_button.png')
+		self.button = load_image(r'button.png')
 
 	def update_values(self):
-		self.score = self.font_50.render(f'score: {((game.game_time // 60) * 7) + (game.hero.collected_coins * 10)}',
+		self.score = self.font_50.render(f'score: {((game.time // 60) * 7) + (game.hero.collected_coins * 10)}',
 		                                 True, (255, 255, 255))
 		self.health = self.font_100.render(f'HP: {game.hero.health}', True, (100, 255, 100))
 		self.display_place.blit(self.score, ((self.display_place.get_width()) - self.score.get_width(),
 		                                     self.display_place.get_height() - self.score.get_height()))
-		self.display_place.blit(self.health, (self.health.get_width(), self.display_place.get_height()
+		self.display_place.blit(self.health, (self.health.get_width() - 220, self.display_place.get_height()
 		                                      - self.health.get_height()))
+
+	def pause_overlay(self):
+		text = self.font_100.render("Game Paused", True, (255, 255, 255))
+		self.display_place.blit(self.pause_trans_gray, (0, 0))
+		self.display_place.blit(text,
+		                        (text.get_width() - 350, screen.get_height() // 9))
 
 
 def terminate():
@@ -225,20 +236,20 @@ class MainGame:
 		self.map_group = SpriteGroup()
 		self.hero_group = SpriteGroup()
 		self.hero = Hero(*self.game_map.spawn_point, self.hero_group)
-		self.game_time = 0
-		self.game_pause = False
+		self.time = 0
+		self.paused = False
 		self.overlay_group = SpriteGroup()
 		self.overlay = OverlayingGUI(self.overlay_group)
 
-	def start(self):
-		while not self.game_pause:
+	def game(self):
+		while not self.paused:
 			self.hero.image_idle.update()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					terminate()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self.game_pause = True
+						self.paused = True
 						continue
 					if event.key == pygame.K_w or event.key == pygame.K_UP:
 						self.game_map.turn('up', True)
@@ -259,26 +270,26 @@ class MainGame:
 					elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
 						self.game_map.turn('down', False)
 				elif not pygame.display.get_active():
-					self.game_pause = True
+					self.paused = True
 					continue
-			self.game_time += 1
+			self.time += 1
 			self.game_map.custom_draw()
 			self.hero.acceleration()
 			self.overlay.update_values()
 			pygame.display.flip()
 			clock.tick(60)
-		self.display_place.fill((0, 0, 0))
-		self.pause_menu()
+		self.pause()
 
-	def pause_menu(self):
-		while self.game_pause:
+	def pause(self):
+		self.overlay.pause_overlay()
+		while self.paused:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					terminate()
-				if event.type == pygame.KEYDOWN:
+				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self.game_pause = False
-						break
+						self.paused = False
+						continue
 				elif event.type == pygame.KEYUP:
 					if event.key == pygame.K_w or event.key == pygame.K_UP:
 						self.game_map.turn('up', False)
@@ -288,13 +299,9 @@ class MainGame:
 						self.game_map.turn('right', False)
 					elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
 						self.game_map.turn('down', False)
-			self.display_place.fill((0, 0, 0))
-			font = pygame.font.Font(None, 50)
-			text = font.render("Game Paused", True, (255, 255, 255))
-			self.display_place.blit(text,
-			                        ((screen.get_width() // 2) - (text.get_width() // 2), screen.get_height() // 4))
+			pygame.display.flip()
 			clock.tick(60)
-		self.start()
+		self.game()
 
 
 if __name__ == '__main__':
@@ -304,4 +311,4 @@ if __name__ == '__main__':
 	screen = pygame.display.set_mode(size)
 
 	game = MainGame()
-	game.start()
+	game.game()
