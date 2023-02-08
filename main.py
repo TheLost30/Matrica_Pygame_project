@@ -1,16 +1,15 @@
 import pygame
-import sys
-from random import randint
+
 from images import *
 
 
 class Map(SpriteGroup):
-	def __init__(self, width, height):
+	def __init__(self, map_width, map_height):
 		super().__init__()
 		self.display_place = pygame.display.get_surface()
 		self.background = load_image('background.png')
 		self.back_rect = self.background.get_rect(topleft=(-200, 0))
-		self.map_matrix = self.generate(int(width // 20), int(height // 20), int(height // 50), 3)
+		self.map_matrix = self.generate(int(map_width // 20), int(map_height // 20), int(map_height // 50), 3)
 		self.rect_list = [pygame.Rect(x * 50, y * 50, 50, 50) for y in range(len(self.map_matrix))
 		                  for x in range(len(self.map_matrix[y])) if self.map_matrix[y][x] != ' ']
 		self.pos_x = 0
@@ -18,9 +17,6 @@ class Map(SpriteGroup):
 		self.vertical_speed, self.horisontal_speed = 0, 0
 		self.up_pressed, self.left_pressed, self.right_pressed, self.down_pressed = False, False, False, False
 		self.spawn_point = [0, 0]
-
-	def get_pos(self):
-		return self.pos
 
 	def turn(self, button, state):
 		match button:
@@ -104,8 +100,8 @@ class Map(SpriteGroup):
 
 	def custom_draw(self):
 		self.acceleration()
-		self.display_place.blit(self.background, ((game.time / 3) % self.background.get_width(), -200))
-		self.display_place.blit(self.background, (((game.time / 3) % self.background.get_width())
+		self.display_place.blit(self.background, ((game.game_time / 3) % self.background.get_width(), -200))
+		self.display_place.blit(self.background, (((game.game_time / 3) % self.background.get_width())
 		                                          - self.background.get_width(), -200))
 		self.place()
 
@@ -202,14 +198,17 @@ class OverlayingGUI(Sprite):
 		super(OverlayingGUI, self).__init__(group)
 		self.score = None
 		self.health = None
+		self.exit_r = None
+		self.settings_r = None
+		self.continue_r = None
+		self.start_r = None
 		self.font_50 = pygame.font.Font('Data/m5x7.ttf', 50)
 		self.font_100 = pygame.font.Font('Data/m5x7.ttf', 100)
+		self.font_150 = pygame.font.Font('Data/m5x7.ttf', 150)
 		self.pause_trans_gray = load_image(r'gray_t.png')
-		self.hov_button = load_image(r'hov_button.png')
-		self.button = load_image(r'button.png')
 
 	def update_values(self):
-		self.score = self.font_50.render(f'score: {((game.time // 60) * 7) + (game.hero.collected_coins * 10)}',
+		self.score = self.font_50.render(f'score: {((game.game_time // 60) * 7) + (game.hero.collected_coins * 10)}',
 		                                 True, (255, 255, 255))
 		self.health = self.font_100.render(f'HP: {game.hero.health}', True, (100, 255, 100))
 		self.display_place.blit(self.score, ((self.display_place.get_width()) - self.score.get_width(),
@@ -222,6 +221,28 @@ class OverlayingGUI(Sprite):
 		self.display_place.blit(self.pause_trans_gray, (0, 0))
 		self.display_place.blit(text,
 		                        (text.get_width() - 350, screen.get_height() // 9))
+
+	def menu_overlay(self):
+		name = self.font_150.render('Game title', True, (255, 255, 255))
+		name_b = self.font_150.render('Game title', True, (0, 0, 0))
+		self.display_place.blit(name_b, (99, 99))
+		self.display_place.blit(name, (100, 100))
+
+		start_t = self.font_100.render('Start', True, (255, 255, 255))
+		self.start_r = pygame.Rect((150, 300), (start_t.get_width(), start_t.get_height()))
+		self.display_place.blit(start_t, (150, 300))
+
+		continue_t = self.font_100.render('Continue', True, (255, 255, 255))
+		self.continue_r = pygame.Rect((150, 400), (continue_t.get_width(), continue_t.get_height()))
+		self.display_place.blit(continue_t, (150, 400))
+
+		settings_t = self.font_100.render('Settings', True, (255, 255, 255))
+		self.settings_r = pygame.Rect((150, 500), (settings_t.get_width(), settings_t.get_height()))
+		self.display_place.blit(settings_t, (150, 500))
+
+		exit_t = self.font_100.render('Quit', True, (255, 255, 255))
+		self.exit_r = pygame.Rect((150, 600), (exit_t.get_width(), exit_t.get_height()))
+		self.display_place.blit(exit_t, (150, 600))
 
 
 def terminate():
@@ -236,8 +257,8 @@ class MainGame:
 		self.map_group = SpriteGroup()
 		self.hero_group = SpriteGroup()
 		self.hero = Hero(*self.game_map.spawn_point, self.hero_group)
-		self.time = 0
-		self.paused = False
+		self.game_time = 0
+		self.paused = 2  # 0-game, 1-pause, 2-menu
 		self.overlay_group = SpriteGroup()
 		self.overlay = OverlayingGUI(self.overlay_group)
 
@@ -249,7 +270,7 @@ class MainGame:
 					terminate()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self.paused = True
+						self.paused = 1
 						continue
 					if event.key == pygame.K_w or event.key == pygame.K_UP:
 						self.game_map.turn('up', True)
@@ -270,25 +291,24 @@ class MainGame:
 					elif event.key == pygame.K_s or event.key == pygame.K_DOWN:
 						self.game_map.turn('down', False)
 				elif not pygame.display.get_active():
-					self.paused = True
+					self.paused = 1
 					continue
-			self.time += 1
+			self.game_time += 1
 			self.game_map.custom_draw()
 			self.hero.acceleration()
 			self.overlay.update_values()
 			pygame.display.flip()
 			clock.tick(60)
-		self.pause()
 
 	def pause(self):
 		self.overlay.pause_overlay()
-		while self.paused:
+		while self.paused == 1:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					terminate()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self.paused = False
+						self.paused = 0
 						continue
 				elif event.type == pygame.KEYUP:
 					if event.key == pygame.K_w or event.key == pygame.K_UP:
@@ -301,7 +321,34 @@ class MainGame:
 						self.game_map.turn('down', False)
 			pygame.display.flip()
 			clock.tick(60)
-		self.game()
+
+	def menu(self):
+		time = 0
+		background = load_image('background.png')
+		while self.paused == 2:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					terminate()
+				elif event.type == pygame.MOUSEBUTTONDOWN:
+					x, y = pygame.mouse.get_pos()
+					if self.overlay.start_r.left < x < self.overlay.start_r.right and \
+						self.overlay.start_r.top < y < self.overlay.start_r.bottom:
+						self.paused = 0
+			screen.blit(background, ((time / 3) % background.get_width(), -200))
+			screen.blit(background, (((time / 3) % background.get_width()) - background.get_width(), -200))
+			self.overlay.menu_overlay()
+			time += 1
+			pygame.display.flip()
+			clock.tick(60)
+
+	def opener(self, n):
+		match n:
+			case 0:
+				self.game()
+			case 1:
+				self.pause()
+			case 2:
+				self.menu()
 
 
 if __name__ == '__main__':
@@ -311,4 +358,5 @@ if __name__ == '__main__':
 	screen = pygame.display.set_mode(size)
 
 	game = MainGame()
-	game.game()
+	while True:
+		game.opener(game.paused)
