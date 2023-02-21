@@ -1,4 +1,25 @@
 {
- "Best_score": 0,
-  "resolution": [1600, 800]
+  "present": {
+    "score": 0,
+    "HP": 100,
+    "stats": {
+      "health_upgrade": 0,
+      "strenght_upgrade": 0,
+      "speed_upgrade": 0,
+      "jump_upgrade": 0,
+      "luck_upgrade": 0
+    }
+  },
+  "default": {
+    "score": 0,
+    "HP": 100,
+    "stats": {
+      "health_upgrade": 0,
+      "strenght_upgrade": 0,
+      "speed_upgrade": 0,
+      "jump_upgrade": 0,
+      "luck_upgrade": 0
+    }
+  },
+  "score": 84
 }
