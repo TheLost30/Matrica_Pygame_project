@@ -1,1 +1,24 @@
-{"present": {"score": 168, "HP": 55, "stats": {"level": 0, "points": 0, "health_upgrade": 0, "strenght_upgrade": 0, "speed_upgrade": 0, "jump_upgrade": 0, "luck_upgrade": 0}}, "default": {"score": 0, "HP": 100, "stats": {"level": 0, "points": 0, "health_upgrade": 0, "strenght_upgrade": 0, "speed_upgrade": 0, "jump_upgrade": 0, "luck_upgrade": 0}}}
+{
+  "present": {
+    "score": 84,
+    "HP": 80,
+    "stats": {
+      "level": 1,
+      "points": 0,
+      "health_upgrade": 1,
+      "strenght_upgrade": 1,
+      "experience": 0
+    }
+  },
+  "default": {
+    "score": 0,
+    "HP": 100,
+    "stats": {
+      "level": 1,
+      "points": 0,
+      "health_upgrade": 1,
+      "strenght_upgrade": 1,
+      "experience": 0
+    }
+  }
+}
