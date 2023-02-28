@@ -1,7 +1,8 @@
-import pygame.draw
+import json
+import sys
+from random import randint
 
 from images import *
-import json
 
 
 class Map(SpriteGroup):
@@ -9,6 +10,7 @@ class Map(SpriteGroup):
         super().__init__()
         self.top_block_image = load_image(r'Map/Dirt_GU.png')
         self.bottom_block_image = load_image(r'Map/Dirt.png')
+        self.barrier = load_image(r'Map/Barrier.png')
         self.display_place = pygame.display.get_surface()
         self.background = load_image('background.png')
         self.back_rect = self.background.get_rect(topleft=(-200, 0))
@@ -95,18 +97,10 @@ class Map(SpriteGroup):
                 for i in rect:
                     if 4 >= enemy.screen_rect.right - self.rect_list[i].left >= 0:
                         return 1
-            case 'bottom':
+            case 'bottom' | 'in_bottom':
                 rect = enemy.screen_rect.collidelistall(self.rect_list)
                 if not rect:
                     return 0
-                for i in rect:
-                    if 5 >= enemy.screen_rect.bottom - self.rect_list[i].top >= 0:
-                        return 1
-            case 'in_bottom':
-                rect = enemy.screen_rect.collidelistall(self.rect_list)
-                if not rect:
-                    return 0
-                # КААААААААААААААААААААК?!?!?!?!?!?!?!?!?!?!?!?
                 for i in rect:
                     if 50 >= enemy.screen_rect.bottom - self.rect_list[i].top >= -50:
                         return 1
@@ -130,12 +124,12 @@ class Map(SpriteGroup):
             if left:
                 self.horisontal_speed = 0
             else:
-                self.horisontal_speed -= 0.25 if self.horisontal_speed > -2 else 0
+                self.horisontal_speed -= 1.25 if self.horisontal_speed > -5 else 0
         if self.right_pressed:
             if right:
                 self.horisontal_speed = 0
             else:
-                self.horisontal_speed += 0.25 if self.horisontal_speed < 2 else 0
+                self.horisontal_speed += 1.25 if self.horisontal_speed < 5 else 0
 
         if bottom:
             if self.up_pressed:
@@ -158,6 +152,8 @@ class Map(SpriteGroup):
                         screen.blit(self.top_block_image, self.rect_list[-1])
                     elif self.map_matrix[y][x] == '█':
                         screen.blit(self.bottom_block_image, self.rect_list[-1])
+                    elif self.map_matrix[y][x] == 'B':
+                        screen.blit(self.barrier, self.rect_list[-1])
 
     def custom_draw(self):
         self.acceleration()
@@ -188,6 +184,13 @@ class Map(SpriteGroup):
             sp[k][i] = '-'
             for j in range(k + 1, len(sp)):
                 sp[j][i] = '█'
+        for i in sp:
+            i[0] = 'B' if i[0] == ' ' else i[0]
+            i[1] = 'B' if i[1] == ' ' else i[1]
+            i[2] = 'B' if i[2] == ' ' else i[2]
+            i[-1] = 'B' if i[-1] == ' ' else i[-1]
+            i[-2] = 'B' if i[-2] == ' ' else i[-2]
+            i[-3] = 'B' if i[-3] == ' ' else i[-3]
         return sp
 
 
@@ -217,7 +220,25 @@ class Hero(Sprite):
         self.hit_delay = 10
         self.attack_rect = pygame.Rect(self.rect.left + self.last_side * 40,
                                        self.rect.centery - 10, 20, 20)
-        pygame.draw.rect(screen, (255, 0, 0), self.attack_rect)
+
+    def upgrade(self, n):
+        match n:
+            case 'health':
+                if self.stats['points'] == 0:
+                    return
+                self.stats['points'] -= 1
+                self.stats['health_upgrade'] += 1
+                self.health += 10
+            case 'attack':
+                if self.stats['points'] == 0:
+                    return
+                self.stats['points'] -= 1
+                self.stats['strenght_upgrade'] += 1
+            case 'heal':
+                if self.stats['points'] == 0:
+                    return
+                self.stats['points'] -= 1
+                self.health = 90 + self.stats['health_upgrade'] * 10
 
     def acceleration(self):
         self.score_points = ((game.time // 60) * 7) + self.old_score
@@ -245,7 +266,6 @@ class Hero(Sprite):
                 self.image_jump.cur_frame = 0
         else:
             self.image_update(self.image_attack)
-            pygame.draw.rect(screen, (255, 0, 0), self.attack_rect)
             self.image_run.cur_frame = 0
             self.image_jump.cur_frame = 0
             self.hit_delay -= 1
@@ -274,7 +294,7 @@ class Enemy(Sprite):
         self.vertical_speed = 0
         self.display_place = pygame.display.get_surface()
         self.enemy_image = AnimatedSprite(load_image(r'enemy_run.png'), 6, 1, 96, 96, group)
-        self.hp = (game.time + 1 // (60 ** 2000))
+        self.hp = game.hero.stats['level'] * 8
         self.last_side = 1
         self.hp_t = game.overlay.font_60.render(f'{self.hp}', True, (255, 0, 0))
         for y in range(len(game.map.map_matrix)):
@@ -302,7 +322,7 @@ class Enemy(Sprite):
             game.map.horisontal_speed -= player_side(self.screen_rect.centerx - game.hero.rect.centerx) * 20
             game.map.vertical_speed -= 5
             game.hero.damaged_delay = 80
-            game.hero.health -= ((game.time // 360) + 1) * 5
+            game.hero.health -= game.hero.stats['level'] * 5
         if game.map.enemy_collides('attack', self):
             self.horisontal_speed *= -10
             self.vertical_speed = -3
@@ -318,15 +338,15 @@ class Enemy(Sprite):
         elif self.last_side < 0:
             self.display_place.blit(self.enemy_image.image_frame(), (self.screen_rect.left - 4,
                                                                      self.screen_rect.top - 30))
-        self.hp_t = game.overlay.font_60.render(f'{self.hp}', True, (255, 0, 0))
-        self.display_place.blit(self.hp_t, self.screen_rect.topright)
+        # self.hp_t = game.overlay.font_60.render(f'{self.hp}', True, (255, 0, 0))
+        # self.display_place.blit(self.hp_t, self.screen_rect.topright)
         self.enemy_image.update()
 
     @staticmethod
     def level():
-        game.hero.stats['experience'] += (game.time + 1 // (60 ** 4)) * 10
-        if game.hero.stats['experience'] >= game.time + 1 // (60 ** 3):
-            game.hero.stats['experience'] %= game.time + 1 // (60 ** 3)
+        game.hero.stats['experience'] += game.hero.stats['level'] * 8.5
+        if game.hero.stats['experience'] >= game.hero.stats['level'] * 100:
+            game.hero.stats['experience'] %= game.hero.stats['level'] * 100
             game.hero.stats['level'] += 1
             game.hero.stats['points'] += 1
 
@@ -346,18 +366,46 @@ class OverlayingGUI(Sprite):
         self.font_100 = pygame.font.Font('Data/m5x7.ttf', 100)
         self.font_150 = pygame.font.Font('Data/m5x7.ttf', 150)
         self.pause_overlay_p = load_image(r'gray_t.png')
+        self.level_bar = load_image(r'GUI/level_bar.png')
+        self.health_bar = load_image(r'GUI/health_bar.png')
+        self.game_overlay_background = load_image(r'GUI/Gui.png')
 
     def game_overlay(self):
-        health = self.font_100.render(f'HP: {game.hero.health}', False, (100, 255, 100))
-        level_text = self.font_60.render(f'lvl:', False, (222, 169, 46))
-        level = self.font_50.render(f'{game.hero.stats["level"]}', False, (100, 255, 100))
-        level_counter = self.font_50.render(f'{game.hero.stats["experience"]}/{game.time + 1 // (60 ** 3)}',
-                                            False, (100, 255, 100))
-        self.display_place.blit(level_text, (self.display_place.get_width() * 0.3, level_text.get_height() // 4))
-        self.display_place.blit(level, (self.display_place.get_width() * 0.4, level_text.get_height() // 7))
+        self.display_place.blit(self.game_overlay_background, (0, 0))
+        # level
+        level_text = self.font_100.render(f'lvl:{game.hero.stats["level"]}', False, (222, 169, 46))
+        level_text2 = self.font_100.render(f'{game.hero.stats["level"] + 1}', False, (222, 169, 46))
+        level_progress = self.level_bar.subsurface((0, 0, 5.22 * (game.hero.stats["experience"]
+                                                                  / game.hero.stats["level"]), 38))
+        self.display_place.blit(level_text, (self.display_place.get_width() // 2 - 250 - level_text.get_width(),
+                                             33))
+        self.display_place.blit(level_progress, (729, 60))
+        self.display_place.blit(level_text2, (1270, 35))
 
-        self.display_place.blit(health, (50, self.display_place.get_height()
-                                         - health.get_height() - 100))
+        # upgrades
+        points = self.font_50.render(f'{game.hero.stats["points"]} points', False, '#FFFFFF')
+        self.display_place.blit(points, (self.display_place.get_width() - points.get_width(), 610))
+
+        heal_text = self.font_50.render(f'heal yourself', False, '#FFFFFF')
+        self.display_place.blit(heal_text, (1610, 660))
+
+        h_upgrade_text = self.font_50.render(f'increase', False, '#FFFFFF')
+        h_upgrade_text2 = self.font_50.render(f'max health', False, '#FFFFFF')
+        self.display_place.blit(h_upgrade_text, (1610, 890))
+        self.display_place.blit(h_upgrade_text2, (1610, 925))
+
+        s_upgrade_text = self.font_50.render(f'increase', False, '#FFFFFF')
+        s_upgrade_text2 = self.font_50.render(f'strength', False, '#FFFFFF')
+        self.display_place.blit(s_upgrade_text, (1610, 760))
+        self.display_place.blit(s_upgrade_text2, (1610, 795))
+
+        # health
+        health = self.font_100.render(f'HP: {game.hero.health}', False, '#F70D0D')
+        health_progress = self.health_bar.subsurface(
+            (0, 0, 2.91 * (game.hero.health * 100 / (90 + game.hero.stats['health_upgrade'] * 10)), 27))
+        self.display_place.blit(health, (100, self.display_place.get_height()
+                                         - health.get_height() - 120))
+        self.display_place.blit(health_progress, (100, 860))
 
     def pause_overlay(self):
         text = self.font_100.render("Game Paused", False, (255, 255, 255))
@@ -388,8 +436,8 @@ class OverlayingGUI(Sprite):
         self.display_place.blit(menu_t, (150, 400))
 
     def menu_overlay(self):
-        name = self.font_150.render('Super survival game', False, (255, 255, 255))
-        name_b = self.font_150.render('Super survival game', False, (0, 0, 0))
+        name = self.font_150.render('MATRICA', False, (255, 255, 255))
+        name_b = self.font_150.render('MATRICA', False, (0, 0, 0))
         self.display_place.blit(name_b, (99, 99))
         self.display_place.blit(name, (100, 100))
 
@@ -479,7 +527,16 @@ class MainGame:
                 if event.type == pygame.QUIT:
                     terminate()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.hero.attack()
+                    x, y = pygame.mouse.get_pos()
+                    if 1525 <= x <= screen.get_width() and 654 <= y:
+                        if 654 <= y <= 750:
+                            self.hero.upgrade('heal')
+                        elif 752 <= y <= 883:
+                            self.hero.upgrade('attack')
+                        elif 885 <= y <= 980:
+                            self.hero.upgrade('health')
+                    else:
+                        self.hero.attack()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.paused = 1
@@ -591,6 +648,7 @@ class MainGame:
                     elif self.overlay.menu_r.left < x < self.overlay.menu_r.right and \
                             self.overlay.menu_r.top < y < self.overlay.menu_r.bottom:
                         self.paused = 2
+                        self.first_start = True
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.paused = 2
