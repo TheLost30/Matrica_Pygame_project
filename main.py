@@ -83,20 +83,6 @@ class Map(SpriteGroup):
                 for i in rect:
                     if -5 <= enemy.screen_rect.top - self.rect_list[i].bottom <= 0:
                         return 1
-            case 'left':
-                rect = enemy.screen_rect.collidelistall(self.rect_list)
-                if not rect:
-                    return 0
-                for i in rect:
-                    if -4 <= enemy.screen_rect.left - self.rect_list[i].right <= 0:
-                        return 1
-            case 'right':
-                rect = enemy.screen_rect.collidelistall(self.rect_list)
-                if not rect:
-                    return 0
-                for i in rect:
-                    if 4 >= enemy.screen_rect.right - self.rect_list[i].left >= 0:
-                        return 1
             case 'bottom' | 'in_bottom':
                 rect = enemy.screen_rect.collidelistall(self.rect_list)
                 if not rect:
@@ -124,12 +110,12 @@ class Map(SpriteGroup):
             if left:
                 self.horisontal_speed = 0
             else:
-                self.horisontal_speed -= 1.25 if self.horisontal_speed > -5 else 0
+                self.horisontal_speed -= 0.25 if self.horisontal_speed > -2 else 0
         if self.right_pressed:
             if right:
                 self.horisontal_speed = 0
             else:
-                self.horisontal_speed += 1.25 if self.horisontal_speed < 5 else 0
+                self.horisontal_speed += 0.25 if self.horisontal_speed < 2 else 0
 
         if bottom:
             if self.up_pressed:
@@ -146,7 +132,7 @@ class Map(SpriteGroup):
         self.rect_list = []
         for y in range(len(self.map_matrix)):
             for x in range(len(self.map_matrix[y])):
-                if self.map_matrix[y][x] != ' ' and self.map_matrix[y][x] != 'P':
+                if self.map_matrix[y][x] != ' ':
                     self.rect_list.append(pygame.Rect(x * 50 - self.pos_x, y * 50 - self.pos_y, 50, 50))
                     if self.map_matrix[y][x] == '-':
                         screen.blit(self.top_block_image, self.rect_list[-1])
@@ -179,8 +165,6 @@ class Map(SpriteGroup):
                 k = max_level
             if randint(0, 20) == 1 and not player_placed:
                 player_placed = True
-                sp[k - 1][i] = 'P'
-                self.spawn_point = [(k - 1) * 50, i * 50]
             sp[k][i] = '-'
             for j in range(k + 1, len(sp)):
                 sp[j][i] = '█'
@@ -693,6 +677,7 @@ class MainGame:
 
 
 if __name__ == '__main__':
+    pygame.display.set_caption('Matrica')
     with open('Data/Data.json') as data_file:
         data = json.load(data_file)
     clock = pygame.time.Clock()
